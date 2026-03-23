@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Limitly Popup</title>
+  <link rel="stylesheet" href="../styles/options.css">
+  <style>
+    body {
+      width: 300px;
+      padding: 15px;
+      margin: 0;
+      background-color: #fff;
+    }
+    .popup-container {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid #ddd;
+      padding-bottom: 10px;
+    }
+    .header h2 {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+    .quick-add {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 8px;
+    }
+    .quick-add h3 {
+      margin: 0 0 10px 0;
+      font-size: 0.9rem;
+    }
+    .current-site {
+      font-weight: bold;
+      color: #007bff;
+      margin-bottom: 10px;
+      word-break: break-all;
+    }
+    #statusMessage {
+      font-size: 0.85em;
+      margin-top: 5px;
+      color: #28a745;
+    }
+  </style>
+</head>
+<body>
+  <div class="popup-container">
+    <div class="header">
+      <h2>Limitly</h2>
+      <button id="openOptions" class="btn">Settings</button>
+    </div>
+
+    <div class="quick-add" id="quickAddSection">
+      <h3>Quick Add Current Site</h3>
+      <div class="current-site" id="currentDomainDisplay">Loading...</div>
+      
+      <form id="quickAddForm" class="flex-form">
+        <!-- Allows you to either pick an existing category, or set it as a standalone -->
+        <select id="quickCategorySelect">
+          <option value="standalone">-- As Standalone (Custom Limit) --</option>
+          <!-- Categories populated via JS -->
+        </select>
+        
+        <input type="number" id="quickStandaloneLimit" placeholder="Minutes" min="1" max="1440" required>
+        
+        <button type="submit" class="btn primary">Block this Site</button>
+        <div id="statusMessage"></div>
+      </form>
+    </div>
+  </div>
+
+  <script src="../js/common.js"></script>
+  <script src="../js/popup.js"></script>
+</body>
+</html>

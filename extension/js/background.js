@@ -156,3 +156,11 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     updateActiveState(activeWindowId);
   }
 });
+
+// Communication port to interact with frontend interfaces (like Popup)
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'FORCE_UPDATE_STATE') {
+    updateActiveState(activeWindowId);
+    sendResponse({ success: true });
+  }
+});
