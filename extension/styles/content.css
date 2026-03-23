@@ -1,0 +1,74 @@
+/* extension/styles/content.css */
+.limitly-block-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(255, 255, 255, 0.95);
+    z-index: 2147483647; /* Maximum possible z-index */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #333;
+    backdrop-filter: blur(10px);
+}
+
+.limitly-block-overlay h1 {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    color: #dc3545;
+}
+
+.limitly-block-overlay p {
+    font-size: 1.2rem;
+    margin-bottom: 30px;
+    max-width: 600px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+.limitly-block-overlay .limitly-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 20px;
+}
+
+.limitly-btn {
+    padding: 12px 24px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    background-color: #007bff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.2s;
+}
+
+.limitly-btn:hover {
+    background-color: #0056b3;
+}
+
+/* Floating Timer Styles */
+.limitly-floating-timer {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background: rgba(0, 0, 0, 0.8);
+    color: #fff;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-family: monospace;
+    font-size: 14px;
+    z-index: 2147483646; /* High, but under overlay */
+    pointer-events: none; /* Don't interfere with clicks */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    display: none; /* Hidden by default */
+}
+.limitly-floating-timer.danger {
+    background: rgba(220, 53, 69, 0.9);
+}

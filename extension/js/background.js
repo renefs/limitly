@@ -163,4 +163,72 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     updateActiveState(activeWindowId);
     sendResponse({ success: true });
   }
+  
+  if (message.type === 'GET_CURRENT_STATE') {
+    // Ensure all partial time commits are logged before giving an answer
+    commitActiveTime().then(async () => {
+      const data = await getConfig();
+      const domain = getBaseDomain(sender.tab?.url || message.url);
+      const target = findTargetForDomain(domain, data.categories, data.standalone);
+      
+      if (target) {
+        const key = target.type === 'category' ? `c:${target.id}` : `s:${target.id}`;
+        const spent = data.tracking.spent[key] || 0;
+        const limitMs = (target.data.limit || 0) * 60 * 1000;
+        const remainingMs = Math.max(0, limitMs - spent);
+        
+        sendResponse({
+          isActive: true,
+          category: target.type === 'category' ? target.id : domain,
+          remainingMs: remainingMs,
+          limitMs: limitMs
+        });
+      } else {
+        sendResponse({ isActive: false });
+      }
+    });
+    return true; // Keeps the sendResponse channel open asynchronously
+  }
+
+  if (message.type === 'CLOSE_TAB') {
+    if (sender.tab) chrome.tabs.remove(sender.tab.id);
+  }
+});
+
+// A ticker that manually forces a broadcast of the timer to the active tab every second
+chrome.alarms.create("timeSync", { periodInMinutes: 1/60 }); // Roughly every 1 second
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+  if (alarm.name === "timeSync") {
+    await commitActiveTime();
+    if (activeTabId && activeTarget) {
+      const data = await getConfig();
+      const spent = data.tracking.spent[activeTarget] || 0;
+      
+      // Determine what limit to evaluate against
+      let targetData = null;
+      let displayName = "";
+      if (activeTarget.startsWith("c:")) {
+          const catId = activeTarget.substring(2);
+          targetData = data.categories[catId];
+          displayName = catId;
+      } else {
+          const domId = activeTarget.substring(2);
+          targetData = data.standalone[domId];
+          displayName = domId;
+      }
+      
+      if (targetData) {
+          const limitMs = (targetData.limit || 0) * 60 * 1000;
+          const remainingMs = Math.max(0, limitMs - spent);
+          
+          try {
+              chrome.tabs.sendMessage(activeTabId, {
+                  type: 'TIMER_UPDATE',
+                  category: displayName,
+                  remainingMs: remainingMs
+              });
+          } catch(e) { } // Tab could be closed or content script inactive
+      }
+    }
+  }
 });
