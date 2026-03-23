@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Limitly Options</title>
+  <link rel="stylesheet" href="../styles/options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h2>Limitly Settings</h2>
+      <p>Group websites into categories to share time limits, or set limits for individual websites.</p>
+    </header>
+
+    <div class="panels">
+      <div class="panel">
+        <div class="card">
+          <h2>Create Category</h2>
+          <form id="addCategoryForm" class="flex-form">
+            <input type="text" id="newCategoryName" placeholder="e.g. Social Media" required>
+            <input type="number" id="newCategoryLimit" placeholder="Minutes" min="1" max="1440" required>
+            <button type="submit">Add Category</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2>Add Site to Category</h2>
+          <form id="addWebsiteForm" class="flex-form">
+            <select id="websiteCategorySelect" required>
+              <option value="" disabled selected>Select Category...</option>
+            </select>
+            <input type="text" id="newWebsiteDomain" placeholder="e.g. twitter.com" required>
+            <button type="submit">Add Website</button>
+          </form>
+        </div>
+        
+        <div class="card">
+          <h2>Add Standalone Site</h2>
+          <form id="addStandaloneForm" class="flex-form">
+            <input type="text" id="newStandaloneDomain" placeholder="e.g. reddit.com" required>
+            <input type="number" id="newStandaloneLimit" placeholder="Minutes" min="1" max="1440" required>
+            <button type="submit">Add Standalone</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="panel main-panel">
+        <div class="card">
+          <h2>Categories</h2>
+          <div id="categoriesList" class="categories-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Standalone Sites</h2>
+          <div id="standaloneList" class="categories-list">
+            <!-- Populated via JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/common.js"></script>
+  <script src="../js/options.js"></script>
+</body>
+</html>
