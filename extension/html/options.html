@@ -2,65 +2,109 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Limitly Options</title>
+  <title>Website Time Limit</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../styles/options.css">
 </head>
 <body>
   <div class="container">
     <header>
-      <h2>Limitly Settings</h2>
-      <p>Group websites into categories to share time limits, or set limits for individual websites.</p>
+      <div class="logos" style="display: flex; gap: 20px; align-items: center; margin-bottom: 20px;">
+        <img src="../limitly.png" class="logo-light" alt="Limitly Logo Light" style="max-height: 100px;">
+        <img src="../limitly-dark.png" class="logo-dark" alt="Limitly Logo Dark" style="max-height: 100px;">
+      </div>
+      <h2>Settings</h2>
+      <p>Control your focus by grouping websites into categories and setting daily time limits.</p>
     </header>
+
+    <div class="card toggle-section">
+      <div class="toggle-info">
+        <h2>Show timer</h2>
+        <p>Display a floating timer for time left on websites</p>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="showTimerToggle">
+        <span class="slider round"></span>
+      </label>
+    </div>
+
+    <div class="card toggle-section">
+      <div class="toggle-info">
+        <h2>Theme</h2>
+        <p>Choose the appearance of the extension</p>
+      </div>
+      <select id="themeSelect" class="theme-select" style="flex: 0 1 150px;">
+        <option value="auto">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
 
     <div class="panels">
       <div class="panel">
-        <div class="card">
-          <h2>Create Category</h2>
+        <div class="card config-section">
+          <h2>Add Category</h2>
+          <p>Create a group with a shared daily limit.</p>
           <form id="addCategoryForm" class="flex-form">
             <input type="text" id="newCategoryName" placeholder="e.g. Social Media" required>
-            <input type="number" id="newCategoryLimit" placeholder="Minutes" min="1" max="1440" required>
-            <button type="submit">Add Category</button>
+            <input type="number" id="newCategoryLimit" placeholder="Min" min="1" max="1440" required>
+            <button type="submit" class="btn primary">Add</button>
           </form>
         </div>
 
-        <div class="card">
-          <h2>Add Site to Category</h2>
+        <div class="card config-section">
+          <h2>Add Website to Category</h2>
+          <p>Add a new website to a category. Only domain names are required.</p>
           <form id="addWebsiteForm" class="flex-form">
             <select id="websiteCategorySelect" required>
               <option value="" disabled selected>Select Category...</option>
             </select>
             <input type="text" id="newWebsiteDomain" placeholder="e.g. twitter.com" required>
-            <button type="submit">Add Website</button>
+            <button type="submit" class="btn primary">Add</button>
           </form>
         </div>
         
-        <div class="card">
-          <h2>Add Standalone Site</h2>
+        <div class="card config-section">
+          <h2>Add Individual Website</h2>
+          <p>Limit a single website exclusively without grouping.</p>
           <form id="addStandaloneForm" class="flex-form">
             <input type="text" id="newStandaloneDomain" placeholder="e.g. reddit.com" required>
-            <input type="number" id="newStandaloneLimit" placeholder="Minutes" min="1" max="1440" required>
-            <button type="submit">Add Standalone</button>
+            <input type="number" id="newStandaloneLimit" placeholder="Min" min="1" max="1440" required>
+            <button type="submit" class="btn primary">Add</button>
           </form>
         </div>
       </div>
 
       <div class="panel main-panel">
-        <div class="card">
-          <h2>Categories</h2>
+        <div class="card list-section" style="margin-bottom:24px;">
+          <div class="list-header">
+            <h2>Daily Category Limits</h2>
+            <p>Enter your time limit for these categories.</p>
+          </div>
           <div id="categoriesList" class="categories-list">
-            <!-- Populated via JS -->
+            <!-- Dynamic Content -->
           </div>
         </div>
 
-        <div class="card">
-          <h2>Standalone Sites</h2>
+        <div class="card list-section">
+          <div class="list-header">
+            <h2>Individual Website Limits</h2>
+            <p>Individual website time limits.</p>
+          </div>
           <div id="standaloneList" class="categories-list">
-            <!-- Populated via JS -->
+            <!-- Dynamic Content -->
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <footer class="options-footer">
+    <p>Created by Rene Fernandez | <a href="https://github.com/renefs/limitly-chrome" target="_blank" rel="noopener noreferrer">View on GitHub</a></p>
+    <p>Enjoying Limitly? <a href="" target="_blank" rel="noopener noreferrer">Leave a review on the Chrome Web Store</a>!</p>
+  </footer>
 
   <script src="../js/common.js"></script>
   <script src="../js/options.js"></script>

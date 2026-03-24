@@ -1,87 +1,126 @@
-// background.js - Main service worker
+// Simple storage wrapper
+const storage = {
+  get: (keys) => new Promise(resolve => chrome.storage.local.get(keys, resolve)),
+  set: (items) => new Promise(resolve => chrome.storage.local.set(items, resolve)),
+};
 
-importScripts('common.js');
-
-// --- Global Tracking State ---
-let activeTabId = null;
-let activeWindowId = null;
-let activeTarget = null; // Stored as "s:{domain}" or "c:{category_name}"
-let activeStartTime = null;
-
-// Initialize default settings when the extension is installed
-chrome.runtime.onInstalled.addListener(async () => {
-  console.log("Limitly installed. Initializing defaults...");
-  
-  const data = await storage.get(['categories', 'tracking', 'lastResetDate']);
-  const today = getTodayString();
-  
-  const defaults = {};
-  
-  // Set up empty categories if they don't exist
-  if (!data.categories) {
-    defaults.categories = {};
-  }
-  
-  // Set up tracking structure for today
-  if (!data.tracking || data.lastResetDate !== today) {
-    defaults.tracking = { date: today, spent: {} };
-    defaults.lastResetDate = today;
-  }
-  
-  if (Object.keys(defaults).length > 0) {
-    await storage.set(defaults);
-    console.log("Defaults initialized:", defaults);
-  }
-});
-
-// Set up a daily alarm to check and reset tracking over midnight
-chrome.alarms.create("dailyResetCheck", { periodInMinutes: 5 });
-
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === "dailyResetCheck") {
-    const data = await storage.get(['tracking', 'lastResetDate']);
-    const today = getTodayString();
-    
-    // If the day changed, reset the tracking object
-    if (data.lastResetDate !== today) {
-        console.log("Day rolled over! Resetting limits.");
-        await storage.set({
-            tracking: { date: today, spent: {} },
-            lastResetDate: today
-        });
+function getBaseDomain(url) {
+  try {
+    const urlObj = new URL(url);
+    let hostname = urlObj.hostname;
+    // Basic prefix stripping
+    if (hostname.startsWith('www.')) {
+      hostname = hostname.slice(4);
     }
+    return hostname;
+  } catch (e) {
+    return "";
   }
-});
-
-// --- Target Resolution ---
-
-// Simple helper to load config safely
-async function getConfig() {
-  const data = await storage.get(['categories', 'standalone', 'tracking']);
-  if (!data.categories) data.categories = {};
-  if (!data.standalone) data.standalone = {};
-  if (!data.tracking) data.tracking = { date: getTodayString(), spent: {} };
-  return data;
 }
 
-function findTargetForDomain(domain, categories, standalone) {
-  // Check exact standalone domains
-  if (standalone[domain]) {
-    return { type: 'standalone', id: domain, data: standalone[domain] };
-  }
+function getTodayString() {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+let activeTabId = null;
+let activeWindowId = null;
+let activeTarget = null; // format: "c:News" or "s:reddit.com"
+let activeStartTime = null;
+
+let isCheckingConfig = false;
+let checkConfigPromise = null;
+
+async function checkConfig() {
+  if (isCheckingConfig) return checkConfigPromise;
   
-  // Check category grouping
+  isCheckingConfig = true;
+  checkConfigPromise = (async () => {
+    const data = await storage.get(['categories', 'standalone', 'tracking', 'showTimer', 'theme', 'lastResetDate']);
+    const today = getTodayString();
+    
+    let needsSave = false;
+    let dayRolledOver = false;
+
+    if (!data.categories) {
+      data.categories = {};
+      needsSave = true;
+    }
+    if (!data.standalone) {
+      data.standalone = {};
+      needsSave = true;
+    }
+    
+    // Check if the day has changed since the last tracking date or last reset
+    const lastDate = data.lastResetDate || (data.tracking ? data.tracking.date : null);
+    
+    if (lastDate !== today) {
+      if (lastDate) {
+        dayRolledOver = true;
+      }
+      data.tracking = { date: today, spent: {} };
+      data.lastResetDate = today;
+      needsSave = true;
+    } else if (!data.tracking) {
+      data.tracking = { date: today, spent: {} };
+      needsSave = true;
+    }
+
+    if (data.showTimer === undefined) {
+      data.showTimer = true;
+      needsSave = true;
+    }
+    if (data.theme === undefined) {
+      data.theme = 'auto';
+      needsSave = true;
+    }
+    
+    if (needsSave) {
+      await storage.set(data);
+    }
+
+    if (dayRolledOver) {
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          try {
+            chrome.tabs.sendMessage(tab.id, { type: 'DAY_ROLLED_OVER' });
+          } catch(e) {}
+        });
+      });
+    }
+
+    return data;
+  })();
+
+  const result = await checkConfigPromise;
+  isCheckingConfig = false;
+  checkConfigPromise = null;
+  return result;
+}
+
+// Find target for a given domain
+function findTargetForDomain(domain, categories, standalone) {
+  // Check standalone first, it should take precedence
+  for (const [site, data] of Object.entries(standalone)) {
+    if (domain === site || domain.endsWith('.' + site)) return { type: 'standalone', id: site, name: site, data: data };
+  }
+  // Check categories next
   for (const [catName, catData] of Object.entries(categories)) {
     if (catData.sites && catData.sites.some(site => domain === site || domain.endsWith('.' + site))) {
-      return { type: 'category', id: catName, data: catData };
+      return { type: 'category', id: catName, name: catName, data: catData };
     }
   }
-  
   return null;
 }
 
-// --- Tracking Logic ---
+function getTargetKey(type, id) {
+  return type === 'category' ? `c:${id}` : `s:${id}`;
+}
 
+// Update time spent for the currently active target
 async function commitActiveTime() {
   if (!activeTarget || !activeStartTime) return;
   
@@ -89,32 +128,38 @@ async function commitActiveTime() {
   const elapsed = now - activeStartTime;
   
   if (elapsed > 0) {
-    const config = await getConfig();
+    const targetToCommit = activeTarget;
+    activeStartTime = now;
+    
+    // Always use checkConfig to ensure we have the correct day's tracking object
+    const data = await checkConfig();
     const today = getTodayString();
     
-    // Only continue if the config date matches today (prevents writing to yesterday's logs)
-    if (config.tracking.date === today) {
-      config.tracking.spent[activeTarget] = (config.tracking.spent[activeTarget] || 0) + elapsed;
-      await storage.set({ tracking: config.tracking });
+    if (data.tracking.date === today) {
+      data.tracking.spent[targetToCommit] = (data.tracking.spent[targetToCommit] || 0) + elapsed;
+      await storage.set({ tracking: data.tracking });
+    } else {
+      // If we are here, it means checkConfig should have already reset it but let's be double sure.
+      // We don't want to save time to an old day's tracking if the date has moved on.
+      const freshData = await checkConfig();
+      freshData.tracking.spent[targetToCommit] = (freshData.tracking.spent[targetToCommit] || 0) + elapsed;
+      await storage.set({ tracking: freshData.tracking });
     }
-    
-    // Reset our start timer
+  } else {
     activeStartTime = now;
   }
 }
 
+// Handle tab or window changes
 async function updateActiveState(windowId) {
-  // First, save the time spent on the PREVIOUS tab
   await commitActiveTime();
   
-  // If no window is active, pause tracking
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
     activeTarget = null;
     activeStartTime = null;
     return;
   }
   
-  // Find currently active tab
   chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (tabs) => {
     if (tabs && tabs.length > 0) {
       const tab = tabs[0];
@@ -128,14 +173,14 @@ async function updateActiveState(windowId) {
         return;
       }
       
-      const config = await getConfig();
-      const target = findTargetForDomain(domain, config.categories, config.standalone);
+      const data = await checkConfig();
+      const target = findTargetForDomain(domain, data.categories, data.standalone);
       
-      // If the domain is tracked, bind to it and start the timer
       if (target) {
-        activeTarget = target.type === 'category' ? `c:${target.id}` : `s:${target.id}`;
+        activeTarget = getTargetKey(target.type, target.id);
         activeStartTime = Date.now();
-        console.log(`Started tracking ${activeTarget}`);
+        const spent = data.tracking.spent[activeTarget] || 0;
+        checkLimitsAndNotify(target.data, spent, target.name, tab.id);
       } else {
         activeTarget = null;
         activeStartTime = null;
@@ -147,88 +192,165 @@ async function updateActiveState(windowId) {
   });
 }
 
-// --- Listeners --- 
-chrome.tabs.onActivated.addListener(({ windowId }) => updateActiveState(windowId));
+async function checkLimitsAndNotify(targetData, spentTime, displayName, tabId) {
+  const limitMs = (targetData.limit || 0) * 60 * 1000;
+  const remainingMs = Math.max(0, limitMs - spentTime);
+  
+  try {
+    chrome.tabs.sendMessage(tabId, {
+      type: 'TIMER_UPDATE',
+      category: displayName,
+      remainingMs: remainingMs,
+      limitMs: limitMs
+    });
+  } catch (e) {
+    // Content script might not be loaded yet
+  }
+}
+
+// Listeners
+chrome.tabs.onActivated.addListener(updateActiveState);
 chrome.windows.onFocusChanged.addListener(updateActiveState);
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  // Update state if the current tab navigated to a new URL
   if (tabId === activeTabId && changeInfo.url) {
-    updateActiveState(activeWindowId);
+    updateActiveState();
   }
 });
 
-// Communication port to interact with frontend interfaces (like Popup)
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'FORCE_UPDATE_STATE') {
-    updateActiveState(activeWindowId);
-    sendResponse({ success: true });
+chrome.alarms.create("timeSync", { periodInMinutes: 1 });
+
+function scheduleNextMidnightReset() {
+  const next = new Date();
+  next.setHours(24, 0, 0, 0);
+  chrome.alarms.create("midnightReset", { when: next.getTime() });
+}
+scheduleNextMidnightReset();
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === "midnightReset") {
+    commitActiveTime().then(async () => {
+      // Force checking config to ensure tracking date resets and listeners are notified
+      await checkConfig();
+      // Update limits to all active tabs
+      updateActiveState();
+    });
+    scheduleNextMidnightReset();
   }
   
+  if (alarm.name === "timeSync") {
+    commitActiveTime();
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (tabs) => {
+      if (tabs && tabs.length > 0) {
+        const tab = tabs[0];
+        const domain = getBaseDomain(tab.url);
+        if (domain && activeTarget) {
+          const data = await checkConfig();
+          const target = findTargetForDomain(domain, data.categories, data.standalone);
+          if (target && getTargetKey(target.type, target.id) === activeTarget) {
+            const spent = data.tracking.spent[activeTarget] || 0;
+            checkLimitsAndNotify(target.data, spent, target.name, tab.id);
+          }
+        }
+      }
+    });
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'GET_CURRENT_STATE') {
-    // Ensure all partial time commits are logged before giving an answer
     commitActiveTime().then(async () => {
-      const data = await getConfig();
+      const data = await checkConfig();
       const domain = getBaseDomain(sender.tab?.url || message.url);
       const target = findTargetForDomain(domain, data.categories, data.standalone);
       
       if (target) {
-        const key = target.type === 'category' ? `c:${target.id}` : `s:${target.id}`;
+        const key = getTargetKey(target.type, target.id);
         const spent = data.tracking.spent[key] || 0;
         const limitMs = (target.data.limit || 0) * 60 * 1000;
         const remainingMs = Math.max(0, limitMs - spent);
         
         sendResponse({
           isActive: true,
-          category: target.type === 'category' ? target.id : domain,
+          category: target.name,
           remainingMs: remainingMs,
-          limitMs: limitMs
+          limitMs: limitMs,
+          showTimer: data.showTimer,
+          theme: data.theme
         });
       } else {
         sendResponse({ isActive: false });
       }
     });
-    return true; // Keeps the sendResponse channel open asynchronously
+    return true; // Keep message channel open for async response
+  }
+  
+  if (message.type === 'RESET_TRACKING') {
+    checkConfig().then(async (data) => {
+      if (data.tracking && data.tracking.spent) {
+        data.tracking.spent[message.target] = 0;
+        await storage.set({ tracking: data.tracking });
+        updateActiveState();
+        sendResponse({ success: true });
+      }
+    });
+    return true;
   }
 
-  if (message.type === 'CLOSE_TAB') {
-    if (sender.tab) chrome.tabs.remove(sender.tab.id);
+  if (message.type === 'REMOVE_TARGET') {
+    checkConfig().then(async (data) => {
+      if (data.tracking && data.tracking.spent) {
+        delete data.tracking.spent[message.target];
+        await storage.set({ tracking: data.tracking });
+        updateActiveState();
+        sendResponse({ success: true });
+      }
+    });
+    return true;
+  }
+
+  if (message.type === 'RENAME_CATEGORY') {
+    checkConfig().then(async (data) => {
+      const { oldName, newName } = message;
+      if (data.categories[oldName]) {
+        data.categories[newName] = data.categories[oldName];
+        delete data.categories[oldName];
+        
+        if (data.tracking && data.tracking.spent) {
+          const oldKey = `c:${oldName}`;
+          const newKey = `c:${newName}`;
+          if (data.tracking.spent[oldKey] !== undefined) {
+            data.tracking.spent[newKey] = data.tracking.spent[oldKey];
+            delete data.tracking.spent[oldKey];
+          }
+        }
+        await storage.set({ categories: data.categories, tracking: data.tracking });
+        updateActiveState();
+        sendResponse({ success: true });
+      }
+    });
+    return true;
+  }
+
+  if (message.type === 'CONFIG_UPDATED') {
+    updateActiveState();
+  }
+  
+  if (message.type === 'GET_TRACKING_DATA') {
+    checkConfig().then((data) => {
+      const tracking = JSON.parse(JSON.stringify(data.tracking));
+      if (activeTarget && activeStartTime) {
+        const elapsed = Date.now() - activeStartTime;
+        tracking.spent[activeTarget] = (tracking.spent[activeTarget] || 0) + elapsed;
+      }
+      sendResponse(tracking);
+    });
+    return true;
+  }
+  
+  if (message.type === 'OPEN_OPTIONS_PAGE') {
+    chrome.runtime.openOptionsPage();
   }
 });
 
-// A ticker that manually forces a broadcast of the timer to the active tab every second
-chrome.alarms.create("timeSync", { periodInMinutes: 1/60 }); // Roughly every 1 second
-chrome.alarms.onAlarm.addListener(async (alarm) => {
-  if (alarm.name === "timeSync") {
-    await commitActiveTime();
-    if (activeTabId && activeTarget) {
-      const data = await getConfig();
-      const spent = data.tracking.spent[activeTarget] || 0;
-      
-      // Determine what limit to evaluate against
-      let targetData = null;
-      let displayName = "";
-      if (activeTarget.startsWith("c:")) {
-          const catId = activeTarget.substring(2);
-          targetData = data.categories[catId];
-          displayName = catId;
-      } else {
-          const domId = activeTarget.substring(2);
-          targetData = data.standalone[domId];
-          displayName = domId;
-      }
-      
-      if (targetData) {
-          const limitMs = (targetData.limit || 0) * 60 * 1000;
-          const remainingMs = Math.max(0, limitMs - spent);
-          
-          try {
-              chrome.tabs.sendMessage(activeTabId, {
-                  type: 'TIMER_UPDATE',
-                  category: displayName,
-                  remainingMs: remainingMs
-              });
-          } catch(e) { } // Tab could be closed or content script inactive
-      }
-    }
-  }
-});
+checkConfig();
+updateActiveState();

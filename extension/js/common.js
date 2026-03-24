@@ -1,14 +1,13 @@
-// common.js - Shared utilities for the extension
+// Store default config structure
+const DEFAULT_CATEGORIES = {
+  // e.g. "News": { limitMinutes: 30, websites: ["cnn.com", "nytimes.com"] }
+};
 
-/**
- * Extracts the base domain from a full URL
- * Example: https://www.reddit.com/r/webdev -> reddit.com
- */
+// Extracted base domain helper
 function getBaseDomain(url) {
   try {
     const urlObj = new URL(url);
     let hostname = urlObj.hostname;
-    // Strip the www. prefix if it exists
     if (hostname.startsWith('www.')) {
       hostname = hostname.slice(4);
     }
@@ -18,10 +17,7 @@ function getBaseDomain(url) {
   }
 }
 
-/**
- * Returns today's date as a string formatted as YYYY-MM-DD
- * Used for tracking daily limits and resetting time.
- */
+// Get standard date string 'YYYY-MM-DD'
 function getTodayString() {
   const d = new Date();
   const year = d.getFullYear();
@@ -30,8 +26,9 @@ function getTodayString() {
   return `${year}-${month}-${day}`;
 }
 
-// A simple Promise-based wrapper for chrome.storage.local
-const storage = {
+// Wrap chrome storage API with promises
+const StorageAPI = {
   get: (keys) => new Promise(resolve => chrome.storage.local.get(keys, resolve)),
-  set: (items) => new Promise(resolve => chrome.storage.local.set(items, resolve))
+  set: (items) => new Promise(resolve => chrome.storage.local.set(items, resolve)),
+  remove: (keys) => new Promise(resolve => chrome.storage.local.remove(keys, resolve))
 };

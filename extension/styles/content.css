@@ -1,74 +1,103 @@
-/* extension/styles/content.css */
-.limitly-block-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(255, 255, 255, 0.95);
-    z-index: 2147483647; /* Maximum possible z-index */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    color: #333;
-    backdrop-filter: blur(10px);
+#wtl-timer-root {
+  --wtl-bg: rgba(246, 248, 250, 0.95);
+  --wtl-text: #24292f;
+  --wtl-border: rgba(0,0,0,0.15);
+  position: fixed;
+  bottom: 24px;
+  left: 24px;
+  background: var(--wtl-bg);
+  color: var(--wtl-text);
+  padding: 12px 20px;
+  border-radius: 30px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 15px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+  z-index: 2147483646;
+  border: 1px solid var(--wtl-border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  backdrop-filter: blur(10px);
+  transition: opacity 0.3s;
+  pointer-events: auto;
+  cursor: grab;
+  user-select: none;
 }
 
-.limitly-block-overlay h1 {
-    font-size: 3rem;
-    margin-bottom: 20px;
-    color: #dc3545;
+#wtl-block-root {
+  --wtl-bg: #f6f8fa;
+  --wtl-text: #24292f;
+  --wtl-text-muted: #57606a;
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--wtl-bg);
+  color: var(--wtl-text);
+  z-index: 2147483647;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  text-align: center;
+  padding: 20px;
 }
 
-.limitly-block-overlay p {
-    font-size: 1.2rem;
-    margin-bottom: 30px;
-    max-width: 600px;
-    text-align: center;
-    line-height: 1.5;
+#wtl-block-root h1 {
+  font-size: 42px;
+  margin-bottom: 12px;
+  color: #ff5555;
+  font-weight: 700;
 }
 
-.limitly-block-overlay .limitly-logo {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 20px;
+#wtl-block-root p {
+  font-size: 20px;
+  color: var(--wtl-text-muted);
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.limitly-btn {
-    padding: 12px 24px;
-    font-size: 1rem;
-    font-weight: 600;
-    color: white;
-    background-color: #007bff;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background-color 0.2s;
+#wtl-block-root .block-icon {
+  width: 80px;
+  height: 80px;
+  color: #2f81f7;
+  margin-bottom: 24px;
 }
 
-.limitly-btn:hover {
-    background-color: #0056b3;
+.wtl-icon-clock {
+  width: 18px; height: 18px;
+  color: #2f81f7;
 }
 
-/* Floating Timer Styles */
-.limitly-floating-timer {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    background: rgba(0, 0, 0, 0.8);
-    color: #fff;
-    padding: 8px 12px;
-    border-radius: 20px;
-    font-family: monospace;
-    font-size: 14px;
-    z-index: 2147483646; /* High, but under overlay */
-    pointer-events: none; /* Don't interfere with clicks */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-    display: none; /* Hidden by default */
+.wtl-hidden {
+  display: none !important;
 }
-.limitly-floating-timer.danger {
-    background: rgba(220, 53, 69, 0.9);
+
+/* Dark Theme Overrides */
+#wtl-timer-root[data-theme="dark"] {
+  --wtl-bg: rgba(22, 27, 34, 0.95);
+  --wtl-text: #c9d1d9;
+  --wtl-border: rgba(255,255,255,0.1);
 }
+
+#wtl-block-root[data-theme="dark"] {
+  --wtl-bg: #0d1117;
+  --wtl-text: #c9d1d9;
+  --wtl-text-muted: #8b949e;
+}
+
+/* Auto Theme Overrides (Prefers Dark) */
+@media (prefers-color-scheme: dark) {
+  #wtl-timer-root:not([data-theme="light"]) {
+    --wtl-bg: rgba(22, 27, 34, 0.95);
+    --wtl-text: #c9d1d9;
+    --wtl-border: rgba(255,255,255,0.1);
+  }
+  
+  #wtl-block-root:not([data-theme="light"]) {
+    --wtl-bg: #0d1117;
+    --wtl-text: #c9d1d9;
+    --wtl-text-muted: #8b949e;
+  }
+}
+
