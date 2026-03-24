@@ -30,7 +30,7 @@ If you prefer to install the extension manually from the source code, follow the
 
 1. Clone this repository or download the ZIP file.
    ```bash
-   git clone https://github.com/yourusername/limitly-chrome.git
+   git clone https://github.com/renefs/limitly.git
    ```
 2. Open Google Chrome and navigate to `chrome://extensions/`.
 3. Enable **Developer mode** in the top right corner.
