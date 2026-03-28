@@ -32,6 +32,10 @@ Download and install Limitly directly from the Chrome Web Store:
 4. Set daily time limits for those categories.
 5. Limitly will track your time on these websites and block them once you reach your daily allowance.
 
+## Privacy
+
+This extension collects no user data whatsoever. All processing happens locally in your browser. See the full [Privacy Policy](PRIVACY.md).
+
 ## How to install it (Manual Installation)
 
 If you prefer to install the extension manually from the source code, follow these steps:
