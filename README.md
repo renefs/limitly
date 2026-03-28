@@ -18,11 +18,11 @@ Download and install Limitly directly from the Chrome Web Store:
 
 ## Screenshots
 
-![Settings Dashboard](extension/screenshots/screenshot-01-settings-dashboard.png)
+![Settings Dashboard](screenshots/screenshot-01-settings-dashboard.png)
 
-![Timer Overlay](extension/screenshots/screenshot-03-timer-overlay.png)
+![Timer Overlay](screenshots/screenshot-03-timer-overlay.png)
 
-![Block Screen](extension/screenshots/screenshot-02-block-screen.png)
+![Block Screen](screenshots/screenshot-02-block-screen.png)
 
 ## How to use it
 
