@@ -16,6 +16,14 @@ Limitly is a Chrome Extension that helps you stay productive and focused by limi
 Download and install Limitly directly from the Chrome Web Store:
 👉 [Link to Chrome Web Store](#) *(Coming soon!)*
 
+## Screenshots
+
+![Settings Dashboard](extension/screenshots/screenshot-01-settings-dashboard.png)
+
+![Timer Overlay](extension/screenshots/screenshot-03-timer-overlay.png)
+
+![Block Screen](extension/screenshots/screenshot-02-block-screen.png)
+
 ## How to use it
 
 1. Click on the Limitly icon in your browser toolbar to open the popup.
