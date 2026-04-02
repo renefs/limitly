@@ -1,0 +1,10 @@
+{
+  "name": "limitly",
+  "version": "1.0.1",
+  "private": true,
+  "description": "Limit your time on websites - Chrome Extension",
+  "scripts": {
+    "build": "node scripts/build.js",
+    "clean": "node scripts/clean.js"
+  }
+}
