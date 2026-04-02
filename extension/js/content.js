@@ -234,6 +234,11 @@ if (!window._wtl_injected) {
   // Fetch current state on load
   function requestState() {
     try {
+      if (!chrome.runtime?.id) {
+        // Extension context invalidated (extension was reloaded/updated) — reload to get a fresh content script
+        location.reload();
+        return;
+      }
       chrome.runtime.sendMessage({ type: 'GET_CURRENT_STATE', url: window.location.href }, (response) => {
         if (chrome.runtime.lastError) {
           // Retry later if background script wasn't ready
@@ -243,7 +248,8 @@ if (!window._wtl_injected) {
         initFromState(response);
       });
     } catch (e) {
-      setTimeout(requestState, 1000);
+      // Extension context invalidated — reload the page
+      location.reload();
     }
   }
 

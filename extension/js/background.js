@@ -335,21 +335,5 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// Re-inject content scripts into existing tabs on extension install/update/reload,
-// since orphaned content scripts lose their connection to the new background.
-chrome.runtime.onInstalled.addListener(async () => {
-  const tabs = await chrome.tabs.query({});
-  for (const tab of tabs) {
-    if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
-      try {
-        await chrome.scripting.executeScript({
-          target: { tabId: tab.id },
-          files: ['js/common.js', 'js/content.js']
-        });
-      } catch (e) { /* Tab may not be scriptable */ }
-    }
-  }
-});
-
 checkConfig();
 updateActiveState();

@@ -7,9 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.0.1] - 2026-03-31
 
-### Added
-- `scripting` permission to re-inject content scripts into existing tabs after extension reload/update.
-
 ### Changed
 - Daily tracking now resets on first visit of the day instead of at midnight, avoiding issues with sleep/idle carrying stale time into the new day.
 - Removed midnight alarm; the `alarms` permission is still used for the periodic time-sync.

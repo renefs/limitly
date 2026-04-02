@@ -7,8 +7,7 @@
     "storage",
     "tabs",
     "webNavigation",
-    "alarms",
-    "scripting"
+    "alarms"
   ],
   "host_permissions": [
     "*://*/*"
