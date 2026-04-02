@@ -123,27 +123,27 @@ function getTargetKey(type, id) {
 // Update time spent for the currently active target
 async function commitActiveTime() {
   if (!activeTarget || !activeStartTime) return;
-  
+
   const now = Date.now();
-  const elapsed = now - activeStartTime;
-  
+  const periodStart = activeStartTime;
+  const elapsed = now - periodStart;
+
   if (elapsed > 0) {
     const targetToCommit = activeTarget;
     activeStartTime = now;
-    
-    // Always use checkConfig to ensure we have the correct day's tracking object
+
+    // Discard elapsed time that spans a day boundary (e.g. overnight sleep/idle).
+    // The user wasn't actively browsing during that gap.
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    if (periodStart < todayStart.getTime()) {
+      return;
+    }
+
     const data = await checkConfig();
-    const today = getTodayString();
-    
-    if (data.tracking.date === today) {
+    if (data.tracking.date === getTodayString()) {
       data.tracking.spent[targetToCommit] = (data.tracking.spent[targetToCommit] || 0) + elapsed;
       await storage.set({ tracking: data.tracking });
-    } else {
-      // If we are here, it means checkConfig should have already reset it but let's be double sure.
-      // We don't want to save time to an old day's tracking if the date has moved on.
-      const freshData = await checkConfig();
-      freshData.tracking.spent[targetToCommit] = (freshData.tracking.spent[targetToCommit] || 0) + elapsed;
-      await storage.set({ tracking: freshData.tracking });
     }
   } else {
     activeStartTime = now;
@@ -219,24 +219,7 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 
 chrome.alarms.create("timeSync", { periodInMinutes: 1 });
 
-function scheduleNextMidnightReset() {
-  const next = new Date();
-  next.setHours(24, 0, 0, 0);
-  chrome.alarms.create("midnightReset", { when: next.getTime() });
-}
-scheduleNextMidnightReset();
-
 chrome.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === "midnightReset") {
-    commitActiveTime().then(async () => {
-      // Force checking config to ensure tracking date resets and listeners are notified
-      await checkConfig();
-      // Update limits to all active tabs
-      updateActiveState();
-    });
-    scheduleNextMidnightReset();
-  }
-  
   if (alarm.name === "timeSync") {
     commitActiveTime();
     chrome.tabs.query({ active: true, lastFocusedWindow: true }, async (tabs) => {
@@ -349,6 +332,22 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   
   if (message.type === 'OPEN_OPTIONS_PAGE') {
     chrome.runtime.openOptionsPage();
+  }
+});
+
+// Re-inject content scripts into existing tabs on extension install/update/reload,
+// since orphaned content scripts lose their connection to the new background.
+chrome.runtime.onInstalled.addListener(async () => {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId: tab.id },
+          files: ['js/common.js', 'js/content.js']
+        });
+      } catch (e) { /* Tab may not be scriptable */ }
+    }
   }
 });
 

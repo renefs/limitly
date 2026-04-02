@@ -3,7 +3,14 @@ let currentRemainingMs = 0;
 let isBlocked = false;
 let config = null;
 
-// Avoid multiple injections
+// Clean up leftover DOM from a previous content script instance (e.g., after extension reload)
+const _prevTimer = document.getElementById('wtl-timer-root');
+const _prevBlock = document.getElementById('wtl-block-root');
+if (_prevTimer) _prevTimer.remove();
+if (_prevBlock) _prevBlock.remove();
+if (document.body) document.body.style.removeProperty('overflow');
+
+// Avoid multiple injections within the same script instance
 if (!window._wtl_injected) {
   window._wtl_injected = true;
 
@@ -244,15 +251,15 @@ if (!window._wtl_injected) {
 
   // Detect tab visibility changes
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden && config && config.isActive && !isBlocked) {
-      // Re-sync when tab becomes visible again to prevent drift
+    if (!document.hidden && config && config.isActive) {
+      // Re-sync when tab becomes visible again to prevent drift or unblock after day reset
       requestState();
     }
   });
 
   // Detect window focus changes
   window.addEventListener('focus', () => {
-    if (config && config.isActive && !isBlocked) {
+    if (config && config.isActive) {
       requestState();
     }
   });
