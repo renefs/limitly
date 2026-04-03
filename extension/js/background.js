@@ -1,104 +1,72 @@
-// Simple storage wrapper
-const storage = {
-  get: (keys) => new Promise(resolve => chrome.storage.local.get(keys, resolve)),
-  set: (items) => new Promise(resolve => chrome.storage.local.set(items, resolve)),
-};
-
-function getBaseDomain(url) {
-  try {
-    const urlObj = new URL(url);
-    let hostname = urlObj.hostname;
-    // Basic prefix stripping
-    if (hostname.startsWith('www.')) {
-      hostname = hostname.slice(4);
-    }
-    return hostname;
-  } catch (e) {
-    return "";
-  }
-}
-
-function getTodayString() {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+importScripts('common.js');
 
 let activeTabId = null;
 let activeWindowId = null;
 let activeTarget = null; // format: "c:News" or "s:reddit.com"
 let activeStartTime = null;
 
-let isCheckingConfig = false;
-let checkConfigPromise = null;
+let configPromise = null;
 
 async function checkConfig() {
-  if (isCheckingConfig) return checkConfigPromise;
-  
-  isCheckingConfig = true;
-  checkConfigPromise = (async () => {
-    const data = await storage.get(['categories', 'standalone', 'tracking', 'showTimer', 'theme', 'lastResetDate']);
-    const today = getTodayString();
-    
-    let needsSave = false;
-    let dayRolledOver = false;
+  if (configPromise) return configPromise;
+  configPromise = _loadConfig().finally(() => { configPromise = null; });
+  return configPromise;
+}
 
-    if (!data.categories) {
-      data.categories = {};
-      needsSave = true;
-    }
-    if (!data.standalone) {
-      data.standalone = {};
-      needsSave = true;
-    }
-    
-    // Check if the day has changed since the last tracking date or last reset
-    const lastDate = data.lastResetDate || (data.tracking ? data.tracking.date : null);
-    
-    if (lastDate !== today) {
-      if (lastDate) {
-        dayRolledOver = true;
-      }
-      data.tracking = { date: today, spent: {} };
-      data.lastResetDate = today;
-      needsSave = true;
-    } else if (!data.tracking) {
-      data.tracking = { date: today, spent: {} };
-      needsSave = true;
-    }
+async function _loadConfig() {
+  const data = await StorageAPI.get(['categories', 'standalone', 'tracking', 'showTimer', 'theme', 'lastResetDate']);
+  const today = getTodayString();
 
-    if (data.showTimer === undefined) {
-      data.showTimer = true;
-      needsSave = true;
-    }
-    if (data.theme === undefined) {
-      data.theme = 'auto';
-      needsSave = true;
-    }
-    
-    if (needsSave) {
-      await storage.set(data);
-    }
+  let needsSave = false;
+  let dayRolledOver = false;
 
-    if (dayRolledOver) {
-      chrome.tabs.query({}, (tabs) => {
-        tabs.forEach(tab => {
-          try {
-            chrome.tabs.sendMessage(tab.id, { type: 'DAY_ROLLED_OVER' });
-          } catch(e) {}
-        });
+  if (!data.categories) {
+    data.categories = {};
+    needsSave = true;
+  }
+  if (!data.standalone) {
+    data.standalone = {};
+    needsSave = true;
+  }
+
+  const lastDate = data.lastResetDate || data.tracking?.date || null;
+
+  if (lastDate !== today) {
+    if (lastDate) {
+      dayRolledOver = true;
+    }
+    data.tracking = { date: today, spent: {} };
+    data.lastResetDate = today;
+    needsSave = true;
+  } else if (!data.tracking) {
+    data.tracking = { date: today, spent: {} };
+    needsSave = true;
+  }
+
+  if (data.showTimer === undefined) {
+    data.showTimer = true;
+    needsSave = true;
+  }
+  if (data.theme === undefined) {
+    data.theme = 'auto';
+    needsSave = true;
+  }
+
+  if (needsSave) {
+    await StorageAPI.set(data);
+  }
+
+  if (dayRolledOver) {
+    chrome.tabs.query({}, (tabs) => {
+      tabs.forEach(tab => {
+        try {
+          chrome.tabs.sendMessage(tab.id, { type: MSG.DAY_ROLLED_OVER });
+        } catch(e) {}
       });
-    }
+    });
+  }
 
-    return data;
-  })();
-
-  const result = await checkConfigPromise;
-  isCheckingConfig = false;
-  checkConfigPromise = null;
-  return result;
+  return data;
 }
 
 // Find target for a given domain
@@ -143,7 +111,7 @@ async function commitActiveTime() {
     const data = await checkConfig();
     if (data.tracking.date === getTodayString()) {
       data.tracking.spent[targetToCommit] = (data.tracking.spent[targetToCommit] || 0) + elapsed;
-      await storage.set({ tracking: data.tracking });
+      await StorageAPI.set({ tracking: data.tracking });
     }
   } else {
     activeStartTime = now;
@@ -193,12 +161,11 @@ async function updateActiveState(windowId) {
 }
 
 async function checkLimitsAndNotify(targetData, spentTime, displayName, tabId) {
-  const limitMs = (targetData.limit || 0) * 60 * 1000;
-  const remainingMs = Math.max(0, limitMs - spentTime);
+  const { limitMs, remainMs: remainingMs } = getRemainingTime(targetData.limit, spentTime);
   
   try {
     chrome.tabs.sendMessage(tabId, {
-      type: 'TIMER_UPDATE',
+      type: MSG.TIMER_UPDATE,
       category: displayName,
       remainingMs: remainingMs,
       limitMs: limitMs
@@ -240,7 +207,7 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 });
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.type === 'GET_CURRENT_STATE') {
+  if (message.type === MSG.GET_CURRENT_STATE) {
     commitActiveTime().then(async () => {
       const data = await checkConfig();
       const domain = getBaseDomain(sender.tab?.url || message.url);
@@ -249,8 +216,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (target) {
         const key = getTargetKey(target.type, target.id);
         const spent = data.tracking.spent[key] || 0;
-        const limitMs = (target.data.limit || 0) * 60 * 1000;
-        const remainingMs = Math.max(0, limitMs - spent);
+        const { limitMs, remainMs: remainingMs } = getRemainingTime(target.data.limit, spent);
         
         sendResponse({
           isActive: true,
@@ -267,11 +233,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true; // Keep message channel open for async response
   }
   
-  if (message.type === 'RESET_TRACKING') {
+  if (message.type === MSG.RESET_TRACKING) {
     checkConfig().then(async (data) => {
       if (data.tracking && data.tracking.spent) {
         data.tracking.spent[message.target] = 0;
-        await storage.set({ tracking: data.tracking });
+        await StorageAPI.set({ tracking: data.tracking });
         updateActiveState();
         sendResponse({ success: true });
       }
@@ -279,11 +245,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === 'REMOVE_TARGET') {
+  if (message.type === MSG.REMOVE_TARGET) {
     checkConfig().then(async (data) => {
       if (data.tracking && data.tracking.spent) {
         delete data.tracking.spent[message.target];
-        await storage.set({ tracking: data.tracking });
+        await StorageAPI.set({ tracking: data.tracking });
         updateActiveState();
         sendResponse({ success: true });
       }
@@ -291,7 +257,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === 'RENAME_CATEGORY') {
+  if (message.type === MSG.RENAME_CATEGORY) {
     checkConfig().then(async (data) => {
       const { oldName, newName } = message;
       if (data.categories[oldName]) {
@@ -306,7 +272,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             delete data.tracking.spent[oldKey];
           }
         }
-        await storage.set({ categories: data.categories, tracking: data.tracking });
+        await StorageAPI.set({ categories: data.categories, tracking: data.tracking });
         updateActiveState();
         sendResponse({ success: true });
       }
@@ -314,11 +280,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
-  if (message.type === 'CONFIG_UPDATED') {
+  if (message.type === MSG.CONFIG_UPDATED) {
     updateActiveState();
   }
   
-  if (message.type === 'GET_TRACKING_DATA') {
+  if (message.type === MSG.GET_TRACKING_DATA) {
     checkConfig().then((data) => {
       const tracking = JSON.parse(JSON.stringify(data.tracking));
       if (activeTarget && activeStartTime) {
@@ -330,7 +296,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   
-  if (message.type === 'OPEN_OPTIONS_PAGE') {
+  if (message.type === MSG.OPEN_OPTIONS_PAGE) {
     chrome.runtime.openOptionsPage();
   }
 });
