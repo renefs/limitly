@@ -26,54 +26,52 @@ if (!window._wtl_injected) {
     <span id="wtl-time-text">00:00</span>
   `;
 
-  let isDragging = false;
-  let dragStartX, dragStartY;
-  let initialLeft, initialBottom;
+  function makeDraggable(el) {
+    let _isDragging = false;
 
-  timerEl.addEventListener('mousedown', (e) => {
-    isDragging = false;
-    dragStartX = e.clientX;
-    dragStartY = e.clientY;
-    
-    const rect = timerEl.getBoundingClientRect();
-    initialLeft = rect.left;
-    initialBottom = window.innerHeight - rect.bottom;
-    
-    timerEl.style.cursor = 'grabbing';
-    timerEl.style.transition = 'none';
+    el.addEventListener('mousedown', (e) => {
+      _isDragging = false;
+      const startX = e.clientX;
+      const startY = e.clientY;
+      const rect = el.getBoundingClientRect();
+      const initLeft = rect.left;
+      const initBottom = window.innerHeight - rect.bottom;
 
-    function onMouseMove(moveEvent) {
-      const dx = moveEvent.clientX - dragStartX;
-      const dy = moveEvent.clientY - dragStartY;
-      
-      if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
-        isDragging = true;
+      el.style.cursor = 'grabbing';
+      el.style.transition = 'none';
+
+      function onMouseMove(moveEvent) {
+        const dx = moveEvent.clientX - startX;
+        const dy = moveEvent.clientY - startY;
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) {
+          _isDragging = true;
+        }
+        if (_isDragging) {
+          el.style.left = `${initLeft + dx}px`;
+          el.style.bottom = `${initBottom - dy}px`;
+          el.style.right = 'auto';
+        }
       }
-      
-      if (isDragging) {
-        const newLeft = initialLeft + dx;
-        const newBottom = initialBottom - dy;
-        
-        timerEl.style.left = `${newLeft}px`;
-        timerEl.style.bottom = `${newBottom}px`;
-        timerEl.style.right = 'auto'; // Override right positioning
+
+      function onMouseUp() {
+        el.style.cursor = 'grab';
+        el.style.transition = 'opacity 0.3s';
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
       }
-    }
 
-    function onMouseUp() {
-      timerEl.style.cursor = 'grab';
-      timerEl.style.transition = 'opacity 0.3s'; // Restore transition
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    }
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    });
 
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
-  });
+    return { get wasDragging() { return _isDragging; } };
+  }
 
-  timerEl.addEventListener('click', (e) => {
-    if (!isDragging) {
-      chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' });
+  const drag = makeDraggable(timerEl);
+
+  timerEl.addEventListener('click', () => {
+    if (!drag.wasDragging) {
+      sendMessage(MSG.OPEN_OPTIONS_PAGE);
     }
   });
 
@@ -163,7 +161,7 @@ if (!window._wtl_injected) {
   function stopEvent(e) {
     if (e.target && e.target.id === 'wtl-options-link') {
       if (e.type === 'click') {
-        chrome.runtime.sendMessage({ type: 'OPEN_OPTIONS_PAGE' });
+        sendMessage(MSG.OPEN_OPTIONS_PAGE);
       }
       return;
     }
@@ -220,13 +218,13 @@ if (!window._wtl_injected) {
 
   // Listen for push updates from background
   chrome.runtime.onMessage.addListener((message) => {
-    if (message.type === 'TIMER_UPDATE') {
+    if (message.type === MSG.TIMER_UPDATE) {
       currentRemainingMs = message.remainingMs;
       if (isBlocked && currentRemainingMs > 0) {
         unblock();
       }
       updateUI();
-    } else if (message.type === 'DAY_ROLLED_OVER') {
+    } else if (message.type === MSG.DAY_ROLLED_OVER) {
       requestState();
     }
   });
@@ -239,7 +237,7 @@ if (!window._wtl_injected) {
         location.reload();
         return;
       }
-      chrome.runtime.sendMessage({ type: 'GET_CURRENT_STATE', url: window.location.href }, (response) => {
+      chrome.runtime.sendMessage({ type: MSG.GET_CURRENT_STATE, url: window.location.href }, (response) => {
         if (chrome.runtime.lastError) {
           // Retry later if background script wasn't ready
           setTimeout(requestState, 1000);
