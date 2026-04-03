@@ -64,8 +64,18 @@ To kickstart development with this extension:
 
 ## Packaging
 
+Build the extension zip for distribution:
+
+```bash
+npm run build
 ```
-zip -r limitly.zip extension/
+
+This creates a `limitly.zip` file ready for upload to the Chrome Web Store.
+
+To clean up build artifacts:
+
+```bash
+npm run clean
 ```
 
 ## Contributing
