@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Limitly - Limit your time on websites",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Limit your time on specific websites by categorizing them",
   "permissions": [
     "storage",
