@@ -108,6 +108,12 @@ async function commitActiveTime() {
       return;
     }
 
+    // Ignore massive elapsed periods (device sleep/hibernate) 
+    // The alarm triggers every 1 minute, so >5 min means it was sleeping
+    if (elapsed > 5 * 60 * 1000) {
+      return;
+    }
+
     const data = await checkConfig();
     if (data.tracking.date === getTodayString()) {
       data.tracking.spent[targetToCommit] = (data.tracking.spent[targetToCommit] || 0) + elapsed;

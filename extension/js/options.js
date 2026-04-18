@@ -355,6 +355,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
+  // Display Extension Version
+  const manifest = chrome.runtime.getManifest();
+  const versionEl = document.getElementById('extension-version');
+  if (versionEl && manifest.version) {
+    versionEl.textContent = `v${manifest.version}`;
+  }
+
   loadConfig();
   setInterval(softRefresh, 10000);
 });
